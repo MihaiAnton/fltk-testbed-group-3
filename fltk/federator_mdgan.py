@@ -50,15 +50,18 @@ class FederatorMDGAN(Federator):
         for client in self.clients:
             ref_clients.append((client.ref, client.name))
         for client in self.clients:
-            responses.append(_remote_method_async(ClientMDGAN.get_client_list, client.ref, client_list=ref_clients))
+            responses.append(_remote_method_async(
+                ClientMDGAN.get_client_list, client.ref, client_list=ref_clients))
 
         for res in responses:
             res.wait()
 
     def init_dataloader(self, ):
         self.config.distributed = True
-        self.dataset = self.config.DistDatasets[self.config.dataset_name](self.config).load_train_dataset()
-        self.testset = self.config.DistDatasets[self.config.dataset_name](self.config).load_test_dataset()
+        self.dataset = self.config.DistDatasets[self.config.dataset_name](
+            self.config).load_train_dataset()
+        self.testset = self.config.DistDatasets[self.config.dataset_name](
+            self.config).load_test_dataset()
         self.finished_init = True
 
         logging.info('Done with init')
@@ -81,18 +84,23 @@ class FederatorMDGAN(Federator):
     def client_load_data(self):
         for client in self.clients:
             _remote_method_async(ClientMDGAN.init_dataloader, client.ref)
-            _remote_method_async(ClientMDGAN.set_batch_size, client.ref, batch_size=self.batch_size)
+            _remote_method_async(ClientMDGAN.set_batch_size,
+                                 client.ref, batch_size=self.batch_size)
 
     def test_generator(self, fl_round):
         with torch.no_grad():
             file_output = f'./{self.config.output_location}'
             self.ensure_path_exists(file_output)
             test_imgs = self.testset[0]
-            fid_z = Variable(torch.FloatTensor(np.random.normal(0, 1, (test_imgs.shape[0], self.latent_dim))))
+            fid_z = Variable(torch.FloatTensor(np.random.normal(
+                0, 1, (test_imgs.shape[0], self.latent_dim))))
             gen_imgs = self.generator(fid_z.detach())
-            mu_gen, sigma_gen = calculate_activation_statistics(gen_imgs, self.fic_model)
-            mu_test, sigma_test = calculate_activation_statistics(torch.from_numpy(test_imgs), self.fic_model)
-            fid = calculate_frechet_distance(mu_gen, sigma_gen, mu_test, sigma_test)
+            mu_gen, sigma_gen = calculate_activation_statistics(
+                gen_imgs, self.fic_model)
+            mu_test, sigma_test = calculate_activation_statistics(
+                torch.from_numpy(test_imgs), self.fic_model)
+            fid = calculate_frechet_distance(
+                mu_gen, sigma_gen, mu_test, sigma_test)
             print("FL-round {} FID Score: {}, IS Score: {}".format(fl_round, fid, mu_gen))
 
             self.fids.append(fid)
@@ -132,10 +140,12 @@ class FederatorMDGAN(Federator):
             # Sample noise as generator input and feed to clients based on their datat size
             # X_d_i = X_d[samples_d[id]]
             # X_g_i = X_g[samples_g[id]]
-            noise = Variable(torch.FloatTensor(np.random.normal(0, 1, (self.batch_size, self.latent_dim))))
+            noise = Variable(torch.FloatTensor(np.random.normal(
+                0, 1, (self.batch_size, self.latent_dim))))
             X_g_i = self.generator(noise)
 
-            noise = Variable(torch.FloatTensor(np.random.normal(0, 1, (self.batch_size, self.latent_dim))))
+            noise = Variable(torch.FloatTensor(np.random.normal(
+                0, 1, (self.batch_size, self.latent_dim))))
             X_d_i = self.generator(noise)
 
             responses.append((client, _remote_method_async(ClientMDGAN.run_epochs, client.ref,
@@ -159,14 +169,14 @@ class FederatorMDGAN(Federator):
             self.optimizer.step(G_context)
 
         logging.info('Gradient is updated')
-        if fl_round % 25 == 0:
+        if fl_round % 5 == 0:
             self.test_generator(fl_round)
 
     def plot_score_data(self):
         file_output = f'./{self.config.output_location}'
         self.ensure_path_exists(file_output)
 
-        plt.plot(range(0, self.config.epochs, 25), self.fids, 'b')
+        plt.plot(range(len(self.fids)), self.fids, 'b')
         # plt.plot(range(self.config.epochs), self.inceptions, 'r')
         plt.xlabel('Federator runs')
         plt.ylabel('FID')
@@ -198,6 +208,7 @@ class FederatorMDGAN(Federator):
             print(f'Running epoch {epoch}')
             self.remote_run_epoch(epoch_size, epoch)
             addition += 1
+            self.plot_score_data()
         elapsed_time_train = datetime.datetime.now() - start_time_train
         train_time_ms = int(elapsed_time_train.total_seconds() * 1000)
         logging.info('Printing client data')
