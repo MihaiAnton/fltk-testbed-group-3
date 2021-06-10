@@ -169,7 +169,7 @@ class FederatorMDGAN(Federator):
             self.optimizer.step(G_context)
 
         logging.info('Gradient is updated')
-        if fl_round % 5 == 0:
+        if fl_round % 25 == 0:
             self.test_generator(fl_round)
 
     def plot_score_data(self):
